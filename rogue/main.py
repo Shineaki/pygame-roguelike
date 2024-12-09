@@ -76,7 +76,7 @@ class Game:
             self.screen_size, flags=pygame.SCALED, vsync=0)
         self.clock = pygame.time.Clock()
         self.running = True
-        self.dt = 0
+        self.dt = 0  # todo
 
         self.tilemap = TileMap(self.screen_tile_size)
 
