@@ -18,7 +18,7 @@ class Direction(Enum):
 
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, groups: Optional[pygame.sprite.Group] = None):
+    def __init__(self, groups: Optional[pygame.sprite.Group] = None, starting_pos: tuple[int, int] = (0, 0)):
         super().__init__(groups)
         self.animation_length = 4
         self.images = {
@@ -31,11 +31,11 @@ class Player(pygame.sprite.Sprite):
         self.current_animation_state = AnimState.IDLE
         self.image = self.images[self.current_animation_state][self.animation_idx]
         self.animation_timer = 0
-        self.rect = pygame.Rect(0, 0, 32, 32)
+        self.rect = self.image.get_frect(center=starting_pos)
         self.direction = pygame.Vector2()
         self.speed = 100
         self.current_direction = Direction.RIGHT
-        self.position = pygame.Vector2(16, 16)
+        self.position = pygame.Vector2(starting_pos[0], starting_pos[1])
 
     def update(self, dt: float):
         self.animation_timer += 1
