@@ -1,3 +1,4 @@
+import json
 import random
 from os.path import join
 from typing import Iterator
@@ -11,154 +12,65 @@ from rogue.player import Player
 from rogue.rect_room import RectangularRoom
 
 
-def create_tile_image(tileset: pygame.image, x: int, y: int) -> pygame.Surface:
-    tmp_surface = pygame.Surface((16, 16))
-    tmp_surface.blit(tileset, (0, 0), (x * 16, y * 16, 16, 16))
-    return tmp_surface
-
-
 class TileMap:
     def __init__(self, size: tuple[int]):
         self.size = size
         self.player_position = (0, 0)
         self.tileset = pygame.image.load(
-            join("resources", "tiles", "tileset.png")).convert_alpha()
+            join("resources", "tiles", "ff.png")).convert_alpha()
 
         self.tile_images = {
-            Tiles.TL_C: create_tile_image(self.tileset, 0, 0),
-            Tiles.WALL: create_tile_image(self.tileset, 1, 0),
-            Tiles.TR_C: create_tile_image(self.tileset, 2, 0),
-            Tiles.TL_I_C: create_tile_image(self.tileset, 3, 0),
-            Tiles.TR_I_C: create_tile_image(self.tileset, 4, 0),
-            Tiles.WALL_DOUBLE_VERTICAL_TOP: create_tile_image(self.tileset, 5, 0),
-            Tiles.WALL_TRILE_TLB: create_tile_image(self.tileset, 6, 0),
-            Tiles.WALL_TRILE_TRB: create_tile_image(self.tileset, 7, 0),
-
-            Tiles.WALL_LEFT: create_tile_image(self.tileset, 0, 1),
-            Tiles.FLOOR: create_tile_image(self.tileset, 1, 1),
-            Tiles.WALL_RIGHT: create_tile_image(self.tileset, 2, 1),
-            Tiles.BL_I_C: create_tile_image(self.tileset, 3, 1),
-            Tiles.BR_I_C: create_tile_image(self.tileset, 4, 1),
-            Tiles.WALL_DOUBLE_VERTICAL_MID: create_tile_image(self.tileset, 5, 1),
-            Tiles.WALL_TRILE_TLB_2: create_tile_image(self.tileset, 6, 1),
-            Tiles.WALL_TRILE_TRB_2: create_tile_image(self.tileset, 7, 1),
-
-            Tiles.BL_C: create_tile_image(self.tileset, 0, 2),
-            Tiles.WALL_BOTTOM: create_tile_image(self.tileset, 1, 2),
-            Tiles.BR_C: create_tile_image(self.tileset, 2, 2),
-            Tiles.WALL_SINGLE: create_tile_image(self.tileset, 3, 2),
-            Tiles.VOID: create_tile_image(self.tileset, 4, 2),
-            Tiles.WALL_DOUBLE_VERTICAL_BOT: create_tile_image(self.tileset, 5, 2),
-            Tiles.WALL_TD_LRB: create_tile_image(self.tileset, 6, 2),
-            Tiles.WALL_BD_LRT: create_tile_image(self.tileset, 7, 2),
-
-            Tiles.WALL_SINGLE_LEFT: create_tile_image(self.tileset, 0, 3),
-            Tiles.WALL_SINGLE_RIGHT: create_tile_image(self.tileset, 1, 3),
+            i: self.create_tile_image(i) for i in range(256+1)
         }
 
         self.tiles = np.full(size, fill_value=Tiles.WALL, order="F")
         self.rooms: list[RectangularRoom] = []
         self.tiles_group = pygame.sprite.Group()
 
-        self.reverse_tile_map = {
-            # Tiles.VOID : ((1111111), (1111111)) 01111111
-            "11111111": Tiles.VOID,
-
-            "11111110": Tiles.TL_C,
-            "11111011": Tiles.TR_C,
-            "11011111": Tiles.BL_C,
-            "01111111": Tiles.BR_C,
-
-            "00000000": Tiles.WALL_SINGLE,
-            "00001000": Tiles.WALL_SINGLE_LEFT,
-            "00010000": Tiles.WALL_SINGLE_RIGHT,
-
-            "00011111": Tiles.WALL_BOTTOM,
-            "10011111": Tiles.WALL_BOTTOM,
-            "00111111": Tiles.WALL_BOTTOM,
-
-            "11010111": Tiles.WALL_LEFT,
-            "11010110": Tiles.WALL_LEFT,
-            "11110111": Tiles.WALL_LEFT,
-            "11110110": Tiles.WALL_LEFT,
-
-            "01101011": Tiles.WALL_RIGHT,
-            "11101011": Tiles.WALL_RIGHT,
-            "01101111": Tiles.WALL_RIGHT,
-
-            "00001011": Tiles.TL_I_C,
-            "00001111": Tiles.TL_I_C,
-            "00101011": Tiles.TL_I_C,
-            "00101111": Tiles.TL_I_C,
-
-            "00010110": Tiles.TR_I_C,
-            "10010110": Tiles.TR_I_C,
-            "00010111": Tiles.TR_I_C,
-            "10010111": Tiles.TR_I_C,
-
-            "01101000": Tiles.BL_I_C,
-            "11101000": Tiles.BL_I_C,
-            "01101001": Tiles.BL_I_C,
-            "11101001": Tiles.BL_I_C,
-
-            "11010000": Tiles.BR_I_C,
-            "11110000": Tiles.BR_I_C,
-            "11010100": Tiles.BR_I_C,
-            "11110100": Tiles.BR_I_C,
-
-            "00000010": Tiles.WALL_DOUBLE_VERTICAL_TOP,
-            "00000110": Tiles.WALL_DOUBLE_VERTICAL_TOP,
-            "00000011": Tiles.WALL_DOUBLE_VERTICAL_TOP,
-            "00000111": Tiles.WALL_DOUBLE_VERTICAL_TOP,
-
-            "01000010": Tiles.WALL_DOUBLE_VERTICAL_MID,
-            "11000010": Tiles.WALL_DOUBLE_VERTICAL_MID,
-            "01100010": Tiles.WALL_DOUBLE_VERTICAL_MID,
-            "11100010": Tiles.WALL_DOUBLE_VERTICAL_MID,
-
-            # Interest Mask:     010 11 010
-            # Match Mask:        x1x 00 x1x
-
-            "01000110": Tiles.WALL_DOUBLE_VERTICAL_MID,
-            "01000011": Tiles.WALL_DOUBLE_VERTICAL_MID,
-            "01000111": Tiles.WALL_DOUBLE_VERTICAL_MID,
-
-
-            "01000000": Tiles.WALL_DOUBLE_VERTICAL_BOT,
-            "11000000": Tiles.WALL_DOUBLE_VERTICAL_BOT,
-            "01100000": Tiles.WALL_DOUBLE_VERTICAL_BOT,
-            "11100000": Tiles.WALL_DOUBLE_VERTICAL_BOT,
-
-
-            "01001011": Tiles.WALL_TRILE_TLB,
-            "01001111": Tiles.WALL_TRILE_TLB,
-
-            "01010110": Tiles.WALL_TRILE_TRB,
-            "01010111": Tiles.WALL_TRILE_TRB,
-
-            "01010010": Tiles.WALL_TRILE_TLB_2,
-            "11010010": Tiles.WALL_TRILE_TLB_2,
-
-            "01001010": Tiles.WALL_TRILE_TRB_2,
-            "01101010": Tiles.WALL_TRILE_TRB_2,
-
-            "01011111": Tiles.WALL_TD_LRB,
-
-            "11111010": Tiles.WALL_BD_LRT,
-        }
-
         self.generate_dungeon()
+        # self.generate_debug_dungeon()
         self.final_tiles = self.tiles.copy()
         self.decide_tile_types()
         self.draw_tiles()
 
+    def create_tile_image(self, idx: int) -> pygame.Surface:
+        tmp_surface = pygame.Surface((16, 16))
+        x = idx % 24
+        y = idx // 24
+        tmp_surface.blit(self.tileset, (0, 0), (x * 16, y * 16, 16, 16))
+        return tmp_surface
+
+    def generate_debug_dungeon(self):
+        dungeon = [
+            "########################################",
+            "########################################",
+            "######################## ####### #######",
+            "#####################  # ####### #  ####",
+            "#####################  # ####### #  ####",
+            "#####################    #######   #####",
+            "########################################",
+            "########################################",
+            "########################################",
+            "########################################",
+            "########################################",
+            "########################################",
+            "########################################",
+            "########################################",
+            "########################################",
+            "########################################",
+            "########################################",
+            "########################################",
+            "########################################",
+            "########################################",
+        ]
+        for y in range(len(dungeon)):
+            for x in range(len(dungeon[y])):
+                if dungeon[y][x] == " ":
+                    self.tiles[x][y] = Tiles.FLOOR
+
     def decide_tile_types(self):
         for x in range(self.size[0]):
             for y in range(self.size[1]):
-
-                c_windows = self.tiles[max(
-                    0, x-1):min(x+2, self.size[0]), max(0, y-1):min(self.size[1], y+2)]
-
                 # We only care about walls right now
                 if self.tiles[x][y] == Tiles.WALL:
                     neighbor_weights = ""
@@ -171,17 +83,18 @@ class TileMap:
                             if 0 <= xx < self.size[0] and 0 <= yy < self.size[1]:
                                 neighbor_weights += str(
                                     self.tiles[xx][yy])
-                                # 1 1 1 0 0 1 1 1
                             else:
                                 neighbor_weights += "1"
-                    if neighbor_weights in self.reverse_tile_map:
-                        self.final_tiles[x][y] = self.reverse_tile_map[neighbor_weights]
+                    self.final_tiles[x][y] = self.tile_images[int(
+                        neighbor_weights[::-1], 2)]
+                else:
+                    self.final_tiles[x][y] = self.tile_images[256]
 
     def draw_tiles(self):
         for x in range(self.size[0]):
             for y in range(self.size[1]):
                 c_sprite = pygame.sprite.Sprite(self.tiles_group)
-                c_sprite.image = self.tile_images[self.final_tiles[x][y]]
+                c_sprite.image = self.final_tiles[x][y]
                 c_sprite.rect = pygame.rect.Rect(x*16, y*16, 16, 16)
 
     def tunnel_between(
@@ -218,15 +131,12 @@ class TileMap:
             if any(new_room.intersects(other_room) for other_room in self.rooms):
                 continue
 
-            print(f"{new_room.x1} - {new_room.y1} - {new_room.x2} - {new_room.y2} ")
-
             new_room.block(self.tiles)
 
             if len(self.rooms) == 0:
                 # The first room, where the player starts.
                 self.player_position = (
                     new_room.center[0]*16, new_room.center[1]*16)
-                print(self.player_position)
             else:  # All rooms after the first.
                 # Dig out a tunnel between this room and the previous one.
                 for x, y in self.tunnel_between(self.rooms[-1].center, new_room.center):
@@ -253,7 +163,7 @@ class Game:
         self.player_group = pygame.sprite.Group()
         self.object = Player(self.player_group, self.tilemap.player_position)
 
-        self.debug = True
+        self.debug = False
 
     def run(self):
         while self.running:
