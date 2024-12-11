@@ -31,7 +31,8 @@ class Player(pygame.sprite.Sprite):
         self.current_animation_state = AnimState.IDLE
         self.image = self.images[self.current_animation_state][self.animation_idx]
         self.animation_timer = 0
-        self.rect = self.image.get_frect(center=starting_pos)
+        self.rect = pygame.rect.Rect(starting_pos, (16, 16))
+
         self.direction = pygame.Vector2()
         self.speed = 100
         self.current_direction = Direction.RIGHT
@@ -63,4 +64,5 @@ class Player(pygame.sprite.Sprite):
             self.image = pygame.transform.flip(
                 self.images[self.current_animation_state][self.animation_idx], True, False)
         self.position += self.direction * self.speed * dt
-        self.rect.center = self.position
+        self.rect.x = self.position.x
+        self.rect.y = self.position.y

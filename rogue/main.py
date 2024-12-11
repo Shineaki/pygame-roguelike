@@ -135,6 +135,7 @@ class TileMap:
 
             if len(self.rooms) == 0:
                 # The first room, where the player starts.
+                print(new_room.center)
                 self.player_position = (
                     new_room.center[0]*16, new_room.center[1]*16)
             else:  # All rooms after the first.
@@ -163,7 +164,7 @@ class Game:
         self.player_group = pygame.sprite.Group()
         self.object = Player(self.player_group, self.tilemap.player_position)
 
-        self.debug = False
+        self.debug = True
 
     def run(self):
         while self.running:
@@ -178,7 +179,9 @@ class Game:
 
             self.player_group.update(self.dt)
             self.tilemap.tiles_group.draw(self.screen)
-            self.player_group.draw(self.screen)
+            # self.player_group.draw(self.screen)
+            self.screen.blit(self.object.image,
+                             self.object.rect.topleft - pygame.Vector2(0, 16))
 
             if self.debug:
                 pygame.draw.rect(self.screen, (0, 255, 0), self.object.rect, 1)
