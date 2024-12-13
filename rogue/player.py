@@ -53,8 +53,8 @@ class Player(pygame.sprite.Sprite):
         }
 
     def update(self, dt: float):
-        self.animation_timer += 1
-        if self.animation_timer > 5:
+        self.animation_timer += dt
+        if self.animation_timer > 0.08:
             self.animation_timer = 0
             self.animation_idx = (self.animation_idx +
                                   1) % self.animation_length
@@ -79,7 +79,6 @@ class Player(pygame.sprite.Sprite):
         if self.moving:
             self.current_animation_state = AnimState.RUN
             self.direction = self.rect.center - self.target_position
-            print(self.direction)
             if self.direction != [0, 0]:
                 self.direction = self.direction.normalize() if self.direction else self.direction
                 self.position -= self.direction * self.speed * dt

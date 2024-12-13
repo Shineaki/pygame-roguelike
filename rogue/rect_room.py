@@ -34,4 +34,4 @@ class RectangularRoom:
         )
 
     def block(self, grid: np.array):
-        grid[self.inner] = Tiles.FLOOR
+        grid[self.inner] = Tiles.FLOOR.value

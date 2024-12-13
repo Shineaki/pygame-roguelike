@@ -6,10 +6,17 @@ from typing import Iterator
 import numpy as np
 import pygame
 import tcod
+from tcod.map import compute_fov
 
-from rogue.enums import Tiles
+from rogue.enums import IntTiles, Tiles
 from rogue.player import Player
 from rogue.rect_room import RectangularRoom
+from rogue.tile import Tile
+
+
+class TilesGroup(pygame.sprite.Group):
+    def draw(self, surface: pygame.surface.Surface):
+        super().draw(surface=surface)
 
 
 class TileMap:
@@ -23,15 +30,28 @@ class TileMap:
             i: self.create_tile_image(i) for i in range(256+1)
         }
 
-        self.tiles = np.full(size, fill_value=Tiles.WALL, order="F")
+        self.all_tiles = np.full(size, fill_value=IntTiles.WALL, order="F")
+        # self.int_tiles = np.full(size, fill_value=Tiles.WALL, order="F")
+        self.visible_tiles = np.full(size, fill_value=False, order="F")
+        self.explored_tiles = np.full(size, fill_value=False, order="F")
         self.rooms: list[RectangularRoom] = []
-        self.tiles_group = pygame.sprite.Group()
+        self.tiles_group = TilesGroup()
 
         self.generate_dungeon()
         # self.generate_debug_dungeon()
-        self.final_tiles = self.tiles.copy()
+        self.final_tiles = np.full(size, fill_value=Tiles.FLOOR, order="F")
         self.decide_tile_types()
-        self.draw_tiles()
+        self.create_tiles()
+
+    def update_fov(self, player) -> None:
+        """Recompute the visible area based on the players point of view."""
+        self.visible_tiles[:] = compute_fov(
+            self.all_tiles,
+            (player.rect.x//16, player.rect.y//16),
+            radius=5,
+        )
+        # If a tile is "visible" it should be added to "explored".
+        self.explored_tiles |= self.visible_tiles
 
     def create_tile_image(self, idx: int) -> pygame.Surface:
         tmp_surface = pygame.Surface((16, 16))
@@ -66,13 +86,13 @@ class TileMap:
         for y in range(len(dungeon)):
             for x in range(len(dungeon[y])):
                 if dungeon[y][x] == " ":
-                    self.tiles[x][y] = Tiles.FLOOR
+                    self.all_tiles[x][y] = Tiles.FLOOR
 
     def decide_tile_types(self):
         for x in range(self.size[0]):
             for y in range(self.size[1]):
                 # We only care about walls right now
-                if self.tiles[x][y] == Tiles.WALL:
+                if self.all_tiles[x][y] == IntTiles.WALL:
                     neighbor_weights = ""
                     for j in [-1, 0, 1]:
                         for i in [-1, 0, 1]:
@@ -81,8 +101,10 @@ class TileMap:
                             xx = x+i
                             yy = y+j
                             if 0 <= xx < self.size[0] and 0 <= yy < self.size[1]:
-                                neighbor_weights += str(
-                                    self.tiles[xx][yy])
+                                neighbor_weights += {
+                                    "0": "1",
+                                    "1": "0"
+                                }[str(self.all_tiles[xx][yy])]
                             else:
                                 neighbor_weights += "1"
                     self.final_tiles[x][y] = self.tile_images[int(
@@ -90,12 +112,11 @@ class TileMap:
                 else:
                     self.final_tiles[x][y] = self.tile_images[256]
 
-    def draw_tiles(self):
+    def create_tiles(self):
         for x in range(self.size[0]):
             for y in range(self.size[1]):
-                c_sprite = pygame.sprite.Sprite(self.tiles_group)
-                c_sprite.image = self.final_tiles[x][y]
-                c_sprite.rect = pygame.rect.Rect(x*16, y*16, 16, 16)
+                c_tile = Tile(
+                    self.tiles_group, self.final_tiles[x][y], pygame.rect.Rect(x*16, y*16, 16, 16))
 
     def tunnel_between(
         self, start: tuple[int, int], end: tuple[int, int]
@@ -131,17 +152,16 @@ class TileMap:
             if any(new_room.intersects(other_room) for other_room in self.rooms):
                 continue
 
-            new_room.block(self.tiles)
+            new_room.block(self.all_tiles)
 
             if len(self.rooms) == 0:
                 # The first room, where the player starts.
-                print(new_room.center)
                 self.player_position = (
                     new_room.center[0]*16, new_room.center[1]*16)
             else:  # All rooms after the first.
                 # Dig out a tunnel between this room and the previous one.
                 for x, y in self.tunnel_between(self.rooms[-1].center, new_room.center):
-                    self.tiles[x, y] = Tiles.FLOOR
+                    self.all_tiles[x, y] = Tiles.FLOOR.value
 
             self.rooms.append(new_room)
 
@@ -162,9 +182,10 @@ class Game:
         self.tilemap = TileMap(self.screen_tile_size)
 
         self.player_group = pygame.sprite.Group()
-        self.object = Player(self.player_group, self.tilemap.player_position)
+        self.player = Player(self.player_group, self.tilemap.player_position)
 
-        self.debug = True
+        self.debug = False
+        self.tilemap.update_fov(self.player)
 
     def run(self):
         while self.running:
@@ -178,16 +199,25 @@ class Game:
             self.screen.fill("black")
 
             self.player_group.update(self.dt)
+            self.tilemap.update_fov(self.player)
+            self.tilemap.tiles_group.update(self.player.rect.center)
             self.tilemap.tiles_group.draw(self.screen)
+            draw_surf = pygame.Surface(self.screen_size, pygame.SRCALPHA)
+            for i in range(self.screen_tile_size[0]):
+                for j in range(self.screen_tile_size[1]):
+                    if not self.tilemap.visible_tiles[i][j]:
+                        pygame.draw.rect(draw_surf, (0, 0, 0, 200),
+                                         (i * 16, j * 16, 16, 16))
             # self.player_group.draw(self.screen)
-            self.screen.blit(self.object.image,
-                             self.object.rect.topleft - pygame.Vector2(0, 16))
-
+            self.screen.blit(self.player.image,
+                             self.player.rect.topleft - pygame.Vector2(0, 16))
             if self.debug:
-                pygame.draw.rect(self.screen, (0, 255, 0), self.object.rect, 1)
+                pygame.draw.rect(draw_surf, pygame.color.Color(0, 255, 0, 50),
+                                 self.player.rect, 1)
                 for room in self.tilemap.rooms:
-                    pygame.draw.rect(self.screen, (255, 0, 0), pygame.rect.Rect(
+                    pygame.draw.rect(draw_surf, (255, 0, 0, 50), pygame.rect.Rect(
                         room.x1 * 16, room.y1 * 16, (room.x2 - room.x1)*16, (room.y2-room.y1)*16), 1)
+            self.screen.blit(draw_surf, (0, 0))
             pygame.display.flip()
 
         pygame.quit()
