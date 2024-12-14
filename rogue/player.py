@@ -52,6 +52,12 @@ class Player(pygame.sprite.Sprite):
             Direction.LEFT: (-16, 0),
         }
 
+    def queue_new_animation(self, animation: AnimState):
+        if animation != self.current_animation_state:
+            self.animation_idx = 0
+            self.animation_timer = 0.0
+            self.current_animation_state = animation
+
     def update(self, dt: float):
         self.animation_timer += dt
         if self.animation_timer > 0.08:
@@ -61,7 +67,6 @@ class Player(pygame.sprite.Sprite):
             self.image = self.images[self.current_animation_state][self.animation_idx]
 
         if not self.moving:
-            self.current_animation_state = AnimState.IDLE
             keys = pygame.key.get_pressed()
             if keys[pygame.K_d]:
                 self.moving_direction = Direction.RIGHT
@@ -75,9 +80,11 @@ class Player(pygame.sprite.Sprite):
                 self.moving = True
                 self.target_position = pygame.Vector2(
                     self.rect.centerx + self.dir_to_pos[self.moving_direction][0], self.rect.centery + self.dir_to_pos[self.moving_direction][1])
+            else:
+                self.queue_new_animation(AnimState.IDLE)
 
         if self.moving:
-            self.current_animation_state = AnimState.RUN
+            self.queue_new_animation(AnimState.RUN)
             self.direction = self.rect.center - self.target_position
             if self.direction != [0, 0]:
                 self.direction = self.direction.normalize() if self.direction else self.direction
