@@ -8,7 +8,7 @@ import pygame
 import tcod
 from tcod.map import compute_fov
 
-from rogue.enums import IntTiles, Tiles
+from rogue.enums import IntTiles, Tiles, TileState
 from rogue.player import Player
 from rogue.rect_room import RectangularRoom
 from rogue.tile import Tile
@@ -31,11 +31,12 @@ class TileMap:
         }
 
         self.all_tiles = np.full(size, fill_value=IntTiles.WALL, order="F")
-        # self.int_tiles = np.full(size, fill_value=Tiles.WALL, order="F")
         self.visible_tiles = np.full(size, fill_value=False, order="F")
         self.explored_tiles = np.full(size, fill_value=False, order="F")
         self.rooms: list[RectangularRoom] = []
         self.tiles_group = TilesGroup()
+        self.tilemap_states = np.full(
+            size, fill_value=TileState.UNEXPLORED, order="F")
 
         self.generate_dungeon()
         # self.generate_debug_dungeon()
@@ -43,15 +44,19 @@ class TileMap:
         self.decide_tile_types()
         self.create_tiles()
 
-    def update_fov(self, player) -> None:
+    def update_fov(self, player: Player) -> None:
         """Recompute the visible area based on the players point of view."""
         self.visible_tiles[:] = compute_fov(
             self.all_tiles,
             (player.rect.x//16, player.rect.y//16),
-            radius=5,
+            radius=4,
         )
         # If a tile is "visible" it should be added to "explored".
         self.explored_tiles |= self.visible_tiles
+        def x(z): return TileState(z)
+        vec = np.vectorize(x)
+        self.tilemap_states[:] = vec(self.explored_tiles.astype(
+            int) + self.visible_tiles.astype(int))
 
     def create_tile_image(self, idx: int) -> pygame.Surface:
         tmp_surface = pygame.Surface((16, 16))
@@ -115,8 +120,9 @@ class TileMap:
     def create_tiles(self):
         for x in range(self.size[0]):
             for y in range(self.size[1]):
-                c_tile = Tile(
-                    self.tiles_group, self.final_tiles[x][y], pygame.rect.Rect(x*16, y*16, 16, 16))
+                c_tile = Tile(self.tiles_group, self.final_tiles[x][y],
+                              pygame.rect.Rect(x*16, y*16, 16, 16)
+                              )
 
     def tunnel_between(
         self, start: tuple[int, int], end: tuple[int, int]
@@ -200,14 +206,9 @@ class Game:
 
             self.player_group.update(self.dt)
             self.tilemap.update_fov(self.player)
-            self.tilemap.tiles_group.update(self.player.rect.center)
+            self.tilemap.tiles_group.update(self.tilemap.tilemap_states)
             self.tilemap.tiles_group.draw(self.screen)
             draw_surf = pygame.Surface(self.screen_size, pygame.SRCALPHA)
-            for i in range(self.screen_tile_size[0]):
-                for j in range(self.screen_tile_size[1]):
-                    if not self.tilemap.visible_tiles[i][j]:
-                        pygame.draw.rect(draw_surf, (0, 0, 0, 200),
-                                         (i * 16, j * 16, 16, 16))
             # self.player_group.draw(self.screen)
             self.screen.blit(self.player.image,
                              self.player.rect.topleft - pygame.Vector2(0, 16))

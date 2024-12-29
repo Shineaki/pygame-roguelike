@@ -6,6 +6,12 @@ class IntTiles(IntEnum):
     FLOOR = 1
 
 
+class TileState(IntEnum):
+    UNEXPLORED = 0
+    EXPLORED = 1
+    VISIBLE = 2
+
+
 class Tiles(Enum):
     WALL = 0
     FLOOR = 1
