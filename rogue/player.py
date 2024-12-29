@@ -5,12 +5,13 @@ from typing import Optional
 import numpy as np
 import pygame
 
-from rogue.enums import AnimState, Direction, TileState
+from rogue.entity import Entity
+from rogue.enums import AnimState, Direction
 
 
-class Player(pygame.sprite.Sprite):
+class Player(Entity):
     def __init__(self, groups: Optional[pygame.sprite.Group] = None, starting_pos: tuple[int, int] = (0, 0), tilemap: Optional[np.array] = None):
-        super().__init__(groups)
+        super().__init__(groups, starting_pos)
 
         self.blocks_movement = True
 
@@ -26,12 +27,11 @@ class Player(pygame.sprite.Sprite):
         self.c_anim_state = AnimState.IDLE
         self.image = self.images[self.c_anim_state][self.anim_idx]
         self.anim_timer = 0
-        self.rect = pygame.rect.Rect(starting_pos, (16, 16))
+        self.rect = pygame.rect.Rect(self.float_position, (16, 16))
 
         self.direction = pygame.Vector2()
         self.speed = 40
         self.current_direction = Direction.RIGHT
-        self.position = pygame.Vector2(starting_pos[0], starting_pos[1])
 
         self.moving = False
         self.moving_direction = Direction.NULL
@@ -67,10 +67,11 @@ class Player(pygame.sprite.Sprite):
                 self.moving_direction = Direction.DOWN
             if keys[pygame.K_w]:
                 self.moving_direction = Direction.UP
+
             if self.moving_direction != Direction.NULL:
                 self.moving = True
-                self.target_position = pygame.Vector2(
-                    self.rect.centerx + self.dir_to_pos[self.moving_direction][0], self.rect.centery + self.dir_to_pos[self.moving_direction][1])
+                self.target_position = pygame.Vector2(self.rect.x + self.dir_to_pos[self.moving_direction][0],
+                                                      self.rect.y + self.dir_to_pos[self.moving_direction][1])
 
                 target_tile = [self.rect.x, self.rect.y]
                 target_tile[0] = (target_tile[0] +
@@ -85,16 +86,19 @@ class Player(pygame.sprite.Sprite):
 
         if self.moving:
             self.queue_new_animation(AnimState.RUN)
-            self.direction = self.rect.center - self.target_position
-            if self.direction != [0, 0]:
+            self.direction = self.rect.topleft - self.target_position
+            if self.direction.length() > 0.01:
                 self.direction = self.direction.normalize() if self.direction else self.direction
-                self.position -= self.direction * self.speed * dt
-                self.rect.x = self.position.x
-                self.rect.y = self.position.y
+                self.float_position -= self.direction * self.speed * dt
             else:
+                self.float_position = self.target_position
+                self.tile_position = (self.float_position.x // 16, self.float_position.y // 16)
                 self.moving = False
                 self.target_position = None
                 self.moving_direction = Direction.NULL
+
+            self.rect.x = self.float_position.x
+            self.rect.y = self.float_position.y
 
         if self.moving_direction in [Direction.LEFT, Direction.RIGHT]:
             self.current_direction = self.moving_direction

@@ -1,15 +1,13 @@
 from enum import Enum
 from os.path import join
-from typing import TYPE_CHECKING, List, Tuple
+from typing import List, Tuple
 
 import numpy as np
 import pygame
 import tcod
 
-from rogue.enums import AnimState, IntTiles, TileState
-
-# from rogue.main import TileMap
-# from rogue.player import Player
+from rogue.entity import Entity
+from rogue.enums import AnimState, TileState
 
 
 class AIRoundState(Enum):
@@ -22,13 +20,9 @@ class AIState(Enum):
     CHASING = 1
 
 
-class Enemy(pygame.sprite.Sprite):
+class Enemy(Entity):
     def __init__(self, group: pygame.sprite.Group, starting_pos: tuple[int, int], map_ref, player_ref):
-        super().__init__(group)
-
-        self.position = pygame.Vector2(starting_pos[0], starting_pos[1])
-
-        self.blocks_movement = True
+        super().__init__(group, starting_pos)
 
         self.target_position = None
 
@@ -47,7 +41,7 @@ class Enemy(pygame.sprite.Sprite):
         self.c_anim_state = AnimState.IDLE
         self.anim_timer = 0
         self.image = self.images[self.c_anim_state][self.anim_idx]
-        self.rect = pygame.rect.Rect(starting_pos, (16, 16))
+        self.rect = pygame.rect.Rect(self.float_position, (16, 16))
 
         # AI
         self.ai_state = AIState.IDLE
@@ -112,9 +106,9 @@ class Enemy(pygame.sprite.Sprite):
             pos = pygame.Vector2(
                 self.rect.x - self.target_position[0], self.rect.y - self.target_position[1])
             pos = pos.normalize()
-            self.position -= pos * 40 * dt
-            self.rect.x = self.position.x
-            self.rect.y = self.position.y
+            self.float_position -= pos * 40 * dt
+            self.rect.x = self.float_position.x
+            self.rect.y = self.float_position.y
         if self.target_position == (self.rect.x, self.rect.y):
             self.round_state = AIRoundState.DONE
             self.target_position = None
@@ -124,5 +118,5 @@ class Enemy(pygame.sprite.Sprite):
             self.anim_idx = (self.anim_idx + 1) % self.anim_len
         self.image = self.images[self.c_anim_state][self.anim_idx]
 
-        if map_state[self.rect.x // 16][self.rect.y // 16] != TileState.VISIBLE:
+        if map_state[self.tile_position[0]][self.tile_position[1]] != TileState.VISIBLE:
             self.image = pygame.Surface((0, 0))

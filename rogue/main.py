@@ -133,7 +133,7 @@ class TileMap:
             if any(enemy.rect.x // 16 == x and enemy.rect.y // 16 == y for enemy in self.enemies):
                 continue
 
-            c_enemy = Enemy(enemy_group, (x*16, y*16), self, self.player_ref)
+            c_enemy = Enemy(enemy_group, (x, y), self, self.player_ref)
             self.enemies.append(c_enemy)
             self.entities.append(c_enemy)
 
@@ -156,8 +156,7 @@ class TileMap:
 
             if len(self.rooms) == 0:
                 # The first room, where the player starts.
-                self.player_position = (
-                    new_room.center[0]*16, new_room.center[1]*16)
+                self.player_position = new_room.center
             else:  # All rooms after the first.
                 # Dig out a tunnel between this room and the previous one.
                 for x, y in self.tunnel_between(self.rooms[-1].center, new_room.center):
@@ -189,7 +188,7 @@ class Game:
 
         self.tilemap.init_with_player(self.player)
 
-        self.debug = False
+        self.debug = True
         self.tilemap.update_fov(self.player)
 
     def run(self):
@@ -214,8 +213,9 @@ class Game:
             self.screen.blit(self.player.image,
                              self.player.rect.topleft - pygame.Vector2(0, 16))
             if self.debug:
-                pygame.draw.rect(draw_surf, pygame.color.Color(0, 255, 0, 50),
-                                 self.player.rect, 1)
+                for ent in self.tilemap.entities:
+                    pygame.draw.rect(draw_surf, pygame.color.Color(0, 255, 0, 50),
+                                     ent.rect, 1)
                 for room in self.tilemap.rooms:
                     pygame.draw.rect(draw_surf, (255, 0, 0, 50), pygame.rect.Rect(
                         room.x1 * 16, room.y1 * 16, (room.x2 - room.x1)*16, (room.y2-room.y1)*16), 1)
