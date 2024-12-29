@@ -22,3 +22,17 @@ class Tiles(Enum):
 
     def __repr__(self):
         return str(self.value)
+
+
+class AnimState(Enum):
+    IDLE = 1
+    RUN = 2
+    HIT = 3
+
+
+class Direction(Enum):
+    NULL = 0
+    LEFT = 1
+    RIGHT = 2
+    UP = 3
+    DOWN = 4

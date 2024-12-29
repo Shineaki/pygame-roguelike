@@ -1,43 +1,35 @@
 
-from enum import Enum
 from os.path import join
 from typing import Optional
 
+import numpy as np
 import pygame
 
-
-class AnimState(Enum):
-    IDLE = 1
-    RUN = 2
-    HIT = 3
-
-
-class Direction(Enum):
-    NULL = 0
-    LEFT = 1
-    RIGHT = 2
-    UP = 3
-    DOWN = 4
+from rogue.enums import AnimState, Direction, TileState
 
 
 class Player(pygame.sprite.Sprite):
-    def __init__(self, groups: Optional[pygame.sprite.Group] = None, starting_pos: tuple[int, int] = (0, 0)):
+    def __init__(self, groups: Optional[pygame.sprite.Group] = None, starting_pos: tuple[int, int] = (0, 0), tilemap: Optional[np.array] = None):
         super().__init__(groups)
-        self.animation_length = 4
+
+        self.blocks_movement = True
+
+        self.anim_len = 4
         self.images = {
             AnimState.IDLE: [pygame.image.load(
-                join("resources", "character", "elf_m", "idle", f"elf_m_idle_anim_f{i}.png")).convert_alpha() for i in range(self.animation_length)],
+                join("resources", "character", "elf_m", "idle", f"elf_m_idle_anim_f{i}.png")).convert_alpha() for i in range(self.anim_len)],
             AnimState.RUN: [pygame.image.load(
-                join("resources", "character", "elf_m", "run", f"elf_m_run_anim_f{i}.png")).convert_alpha() for i in range(self.animation_length)]
+                join("resources", "character", "elf_m", "run", f"elf_m_run_anim_f{i}.png")).convert_alpha() for i in range(self.anim_len)]
         }
-        self.animation_idx = 0
-        self.current_animation_state = AnimState.IDLE
-        self.image = self.images[self.current_animation_state][self.animation_idx]
-        self.animation_timer = 0
+        self.map_ref = tilemap
+        self.anim_idx = 0
+        self.c_anim_state = AnimState.IDLE
+        self.image = self.images[self.c_anim_state][self.anim_idx]
+        self.anim_timer = 0
         self.rect = pygame.rect.Rect(starting_pos, (16, 16))
 
         self.direction = pygame.Vector2()
-        self.speed = 50
+        self.speed = 40
         self.current_direction = Direction.RIGHT
         self.position = pygame.Vector2(starting_pos[0], starting_pos[1])
 
@@ -53,18 +45,17 @@ class Player(pygame.sprite.Sprite):
         }
 
     def queue_new_animation(self, animation: AnimState):
-        if animation != self.current_animation_state:
-            self.animation_idx = 0
-            self.animation_timer = 0.0
-            self.current_animation_state = animation
+        if animation != self.c_anim_state:
+            self.anim_idx = 0
+            self.anim_timer = 0.0
+            self.c_anim_state = animation
 
     def update(self, dt: float):
-        self.animation_timer += dt
-        if self.animation_timer > 0.08:
-            self.animation_timer = 0
-            self.animation_idx = (self.animation_idx +
-                                  1) % self.animation_length
-            self.image = self.images[self.current_animation_state][self.animation_idx]
+        self.anim_timer += dt
+        if self.anim_timer > 0.08:
+            self.anim_timer = 0
+            self.anim_idx = (self.anim_idx + 1) % self.anim_len
+            self.image = self.images[self.c_anim_state][self.anim_idx]
 
         if not self.moving:
             keys = pygame.key.get_pressed()
@@ -80,6 +71,15 @@ class Player(pygame.sprite.Sprite):
                 self.moving = True
                 self.target_position = pygame.Vector2(
                     self.rect.centerx + self.dir_to_pos[self.moving_direction][0], self.rect.centery + self.dir_to_pos[self.moving_direction][1])
+
+                target_tile = [self.rect.x, self.rect.y]
+                target_tile[0] = (target_tile[0] +
+                                  self.dir_to_pos[self.moving_direction][0]) // 16
+                target_tile[1] = (target_tile[1] +
+                                  self.dir_to_pos[self.moving_direction][1]) // 16
+                if self.map_ref.all_tiles[target_tile[0]][target_tile[1]] == 0:
+                    self.moving = False
+                    self.moving_direction = Direction.NULL
             else:
                 self.queue_new_animation(AnimState.IDLE)
 
@@ -101,4 +101,4 @@ class Player(pygame.sprite.Sprite):
 
         if self.current_direction == Direction.LEFT:
             self.image = pygame.transform.flip(
-                self.images[self.current_animation_state][self.animation_idx], True, False)
+                self.images[self.c_anim_state][self.anim_idx], True, False)

@@ -1,13 +1,13 @@
-import json
 import random
 from os.path import join
-from typing import Iterator
+from typing import TYPE_CHECKING, Iterator, Optional
 
 import numpy as np
 import pygame
 import tcod
 from tcod.map import compute_fov
 
+from rogue.enemy import Enemy
 from rogue.enums import IntTiles, Tiles, TileState
 from rogue.player import Player
 from rogue.rect_room import RectangularRoom
@@ -20,7 +20,10 @@ class TilesGroup(pygame.sprite.Group):
 
 
 class TileMap:
-    def __init__(self, size: tuple[int]):
+    def __init__(self, size: tuple[int], enemy_group: pygame.sprite.Group):
+        self.player_ref = None
+        self.enemy_group = enemy_group
+
         self.size = size
         self.player_position = (0, 0)
         self.tileset = pygame.image.load(
@@ -31,18 +34,26 @@ class TileMap:
         }
 
         self.all_tiles = np.full(size, fill_value=IntTiles.WALL, order="F")
+        self.final_tiles = np.full(size, fill_value=Tiles.FLOOR, order="F")
         self.visible_tiles = np.full(size, fill_value=False, order="F")
         self.explored_tiles = np.full(size, fill_value=False, order="F")
         self.rooms: list[RectangularRoom] = []
+        self.enemies: list[Enemy] = []
         self.tiles_group = TilesGroup()
         self.tilemap_states = np.full(
             size, fill_value=TileState.UNEXPLORED, order="F")
 
+        self.entities = []
+
         self.generate_dungeon()
-        # self.generate_debug_dungeon()
-        self.final_tiles = np.full(size, fill_value=Tiles.FLOOR, order="F")
         self.decide_tile_types()
         self.create_tiles()
+
+    def init_with_player(self, player_ref):
+        self.player_ref = player_ref
+        self.generate_enemies(self.enemy_group)
+
+        self.entities.append(player_ref)
 
     def update_fov(self, player: Player) -> None:
         """Recompute the visible area based on the players point of view."""
@@ -53,9 +64,8 @@ class TileMap:
         )
         # If a tile is "visible" it should be added to "explored".
         self.explored_tiles |= self.visible_tiles
-        def x(z): return TileState(z)
-        vec = np.vectorize(x)
-        self.tilemap_states[:] = vec(self.explored_tiles.astype(
+
+        self.tilemap_states[:] = (self.explored_tiles.astype(
             int) + self.visible_tiles.astype(int))
 
     def create_tile_image(self, idx: int) -> pygame.Surface:
@@ -64,34 +74,6 @@ class TileMap:
         y = idx // 24
         tmp_surface.blit(self.tileset, (0, 0), (x * 16, y * 16, 16, 16))
         return tmp_surface
-
-    def generate_debug_dungeon(self):
-        dungeon = [
-            "########################################",
-            "#### # ### #############################",
-            "############ ###########################",
-            "##### #### #############################",
-            "########################################",
-            "########################################",
-            "########################################",
-            "########################################",
-            "########################################",
-            "######## ########## # ##################",
-            "########## #############################",
-            "######### ######### ####################",
-            "########################################",
-            "########################################",
-            "########################################",
-            "########################################",
-            "########################################",
-            "########################################",
-            "########################################",
-            "########################################",
-        ]
-        for y in range(len(dungeon)):
-            for x in range(len(dungeon[y])):
-                if dungeon[y][x] == " ":
-                    self.all_tiles[x][y] = Tiles.FLOOR
 
     def decide_tile_types(self):
         for x in range(self.size[0]):
@@ -120,9 +102,9 @@ class TileMap:
     def create_tiles(self):
         for x in range(self.size[0]):
             for y in range(self.size[1]):
-                c_tile = Tile(self.tiles_group, self.final_tiles[x][y],
-                              pygame.rect.Rect(x*16, y*16, 16, 16)
-                              )
+                Tile(self.tiles_group, self.final_tiles[x][y],
+                     pygame.rect.Rect(x*16, y*16, 16, 16)
+                     )
 
     def tunnel_between(
         self, start: tuple[int, int], end: tuple[int, int]
@@ -142,6 +124,18 @@ class TileMap:
             yield x, y
         for x, y in tcod.los.bresenham((corner_x, corner_y), (x2, y2)).tolist():
             yield x, y
+
+    def generate_enemies(self, enemy_group: pygame.sprite.Group):
+        for c_room in self.rooms:
+            x = random.randint(c_room.x1, c_room.x2 - 1)
+            y = random.randint(c_room.y1, c_room.y2 - 1)
+
+            if any(enemy.rect.x // 16 == x and enemy.rect.y // 16 == y for enemy in self.enemies):
+                continue
+
+            c_enemy = Enemy(enemy_group, (x*16, y*16), self, self.player_ref)
+            self.enemies.append(c_enemy)
+            self.entities.append(c_enemy)
 
     def generate_dungeon(self):
         room_min_size = 3
@@ -185,10 +179,15 @@ class Game:
         self.running = True
         self.dt = 0  # todo
 
-        self.tilemap = TileMap(self.screen_tile_size)
-
         self.player_group = pygame.sprite.Group()
-        self.player = Player(self.player_group, self.tilemap.player_position)
+        self.enemy_group = pygame.sprite.Group()
+
+        self.tilemap = TileMap(self.screen_tile_size, self.enemy_group)
+
+        self.player = Player(
+            self.player_group, self.tilemap.player_position, self.tilemap)
+
+        self.tilemap.init_with_player(self.player)
 
         self.debug = False
         self.tilemap.update_fov(self.player)
@@ -209,6 +208,8 @@ class Game:
             self.tilemap.tiles_group.update(self.tilemap.tilemap_states)
             self.tilemap.tiles_group.draw(self.screen)
             draw_surf = pygame.Surface(self.screen_size, pygame.SRCALPHA)
+            self.enemy_group.update(self.dt, self.tilemap.tilemap_states)
+            self.enemy_group.draw(self.screen)
             # self.player_group.draw(self.screen)
             self.screen.blit(self.player.image,
                              self.player.rect.topleft - pygame.Vector2(0, 16))
