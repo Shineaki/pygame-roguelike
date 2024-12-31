@@ -36,3 +36,13 @@ class Direction(Enum):
     RIGHT = 2
     UP = 3
     DOWN = 4
+
+
+class AIRoundState(Enum):
+    DONE = 0
+    MOVING = 1
+
+
+class AIState(Enum):
+    IDLE = 0
+    CHASING = 1

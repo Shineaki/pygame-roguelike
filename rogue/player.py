@@ -2,7 +2,6 @@
 from os.path import join
 from typing import Optional
 
-import numpy as np
 import pygame
 
 from rogue.entity import Entity
@@ -10,10 +9,10 @@ from rogue.enums import AnimState, Direction
 
 
 class Player(Entity):
-    def __init__(self, groups: Optional[pygame.sprite.Group] = None, starting_pos: tuple[int, int] = (0, 0), tilemap: Optional[np.array] = None):
-        super().__init__(groups, starting_pos)
-
-        self.blocks_movement = True
+    def __init__(self, groups: Optional[pygame.sprite.Group], starting_pos: tuple[int, int], tilemap):
+        super().__init__(group=groups,
+                         blocks_movement=True,
+                         starting_position=starting_pos)
 
         self.anim_len = 4
         self.images = {
@@ -31,17 +30,16 @@ class Player(Entity):
 
         self.direction = pygame.Vector2()
         self.speed = 40
-        self.current_direction = Direction.RIGHT
 
         self.moving = False
         self.moving_direction = Direction.NULL
         self.target_position = None
 
         self.dir_to_pos = {
-            Direction.UP: (0, -16),
-            Direction.RIGHT: (16, 0),
-            Direction.DOWN: (0, 16),
-            Direction.LEFT: (-16, 0),
+            Direction.UP: (0, -1),
+            Direction.RIGHT: (1, 0),
+            Direction.DOWN: (0, 1),
+            Direction.LEFT: (-1, 0),
         }
 
     def queue_new_animation(self, animation: AnimState):
@@ -51,48 +49,24 @@ class Player(Entity):
             self.c_anim_state = animation
 
     def update(self, dt: float):
+        # TODO: Animation in baseclass
         self.anim_timer += dt
         if self.anim_timer > 0.08:
             self.anim_timer = 0
             self.anim_idx = (self.anim_idx + 1) % self.anim_len
             self.image = self.images[self.c_anim_state][self.anim_idx]
 
-        if not self.moving:
-            keys = pygame.key.get_pressed()
-            if keys[pygame.K_d]:
-                self.moving_direction = Direction.RIGHT
-            if keys[pygame.K_a]:
-                self.moving_direction = Direction.LEFT
-            if keys[pygame.K_s]:
-                self.moving_direction = Direction.DOWN
-            if keys[pygame.K_w]:
-                self.moving_direction = Direction.UP
-
-            if self.moving_direction != Direction.NULL:
-                self.moving = True
-                self.target_position = pygame.Vector2(self.rect.x + self.dir_to_pos[self.moving_direction][0],
-                                                      self.rect.y + self.dir_to_pos[self.moving_direction][1])
-
-                target_tile = [self.rect.x, self.rect.y]
-                target_tile[0] = (target_tile[0] +
-                                  self.dir_to_pos[self.moving_direction][0]) // 16
-                target_tile[1] = (target_tile[1] +
-                                  self.dir_to_pos[self.moving_direction][1]) // 16
-                if self.map_ref.all_tiles[target_tile[0]][target_tile[1]] == 0:
-                    self.moving = False
-                    self.moving_direction = Direction.NULL
-            else:
-                self.queue_new_animation(AnimState.IDLE)
+        if not self.moving and self.moving_direction == Direction.NULL:
+            self.queue_new_animation(AnimState.IDLE)
 
         if self.moving:
             self.queue_new_animation(AnimState.RUN)
-            self.direction = self.rect.topleft - self.target_position
+            self.direction = self.rect.topleft - pygame.Vector2(self.target_position[0]*16, self.target_position[1]*16)
             if self.direction.length() > 0.01:
                 self.direction = self.direction.normalize() if self.direction else self.direction
                 self.float_position -= self.direction * self.speed * dt
             else:
-                self.float_position = self.target_position
-                self.tile_position = (self.float_position.x // 16, self.float_position.y // 16)
+                self.float_position = pygame.Vector2(self.target_position[0]*16, self.target_position[1]*16)
                 self.moving = False
                 self.target_position = None
                 self.moving_direction = Direction.NULL
@@ -101,8 +75,31 @@ class Player(Entity):
             self.rect.y = self.float_position.y
 
         if self.moving_direction in [Direction.LEFT, Direction.RIGHT]:
-            self.current_direction = self.moving_direction
+            self.facing_direction = self.moving_direction
 
-        if self.current_direction == Direction.LEFT:
+        if self.facing_direction == Direction.LEFT:
             self.image = pygame.transform.flip(
                 self.images[self.c_anim_state][self.anim_idx], True, False)
+
+    def move(self, move_dir: Direction) -> None:
+        # Invalid movement direction
+        if move_dir == Direction.NULL:
+            return False
+
+        # We are already moving
+        if self.moving:
+            return False
+
+        # Check if the target position is blocked
+        movement_dir = self.dir_to_pos[move_dir]
+        target_pos = (self.tile_position[0] + movement_dir[0], self.tile_position[1] + movement_dir[1])
+        if self.map_ref.all_tiles[target_pos[0]][target_pos[1]] == 0:
+            return False
+
+        # Valid movement queued
+        self.moving = True
+        self.moving_direction = move_dir
+        self.target_position = target_pos
+        self.tile_position = self.target_position
+
+        return True
