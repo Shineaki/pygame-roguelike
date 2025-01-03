@@ -4,6 +4,7 @@ from typing import Optional
 
 import pygame
 
+from rogue.components.animator import Animator
 from rogue.entity import Entity
 from rogue.enums import AnimState, Direction
 
@@ -13,20 +14,11 @@ class Player(Entity):
         super().__init__(group=groups,
                          blocks_movement=True,
                          starting_position=starting_pos)
+        self.animator = Animator(character_name="elf_m")
 
-        self.anim_len = 4
-        self.images = {
-            AnimState.IDLE: [pygame.image.load(
-                join("resources", "character", "elf_m", "idle", f"elf_m_idle_anim_f{i}.png")).convert_alpha() for i in range(self.anim_len)],
-            AnimState.RUN: [pygame.image.load(
-                join("resources", "character", "elf_m", "run", f"elf_m_run_anim_f{i}.png")).convert_alpha() for i in range(self.anim_len)]
-        }
-        self.map_ref = tilemap
-        self.anim_idx = 0
-        self.c_anim_state = AnimState.IDLE
-        self.image = self.images[self.c_anim_state][self.anim_idx]
-        self.anim_timer = 0
+        self.image = self.animator.get_current_image()
         self.rect = pygame.rect.Rect(self.float_position, (16, 16))
+        self.map_ref = tilemap
 
         self.direction = pygame.Vector2()
         self.speed = 40
@@ -42,25 +34,11 @@ class Player(Entity):
             Direction.LEFT: (-1, 0),
         }
 
-    def queue_new_animation(self, animation: AnimState):
-        if animation != self.c_anim_state:
-            self.anim_idx = 0
-            self.anim_timer = 0.0
-            self.c_anim_state = animation
-
     def update(self, dt: float):
-        # TODO: Animation in baseclass
-        self.anim_timer += dt
-        if self.anim_timer > 0.08:
-            self.anim_timer = 0
-            self.anim_idx = (self.anim_idx + 1) % self.anim_len
-            self.image = self.images[self.c_anim_state][self.anim_idx]
-
-        if not self.moving and self.moving_direction == Direction.NULL:
-            self.queue_new_animation(AnimState.IDLE)
+        self.animator.update(dt)
 
         if self.moving:
-            self.queue_new_animation(AnimState.RUN)
+            self.animator.update_state(AnimState.RUN)
             self.direction = self.rect.topleft - pygame.Vector2(self.target_position[0]*16, self.target_position[1]*16)
             if self.direction.length() > 0.01:
                 self.direction = self.direction.normalize() if self.direction else self.direction
@@ -73,13 +51,14 @@ class Player(Entity):
 
             self.rect.x = self.float_position.x
             self.rect.y = self.float_position.y
+        elif not self.moving and self.moving_direction == Direction.NULL:
+            self.animator.update_state(AnimState.IDLE)
 
+        self.image = self.animator.get_current_image()
         if self.moving_direction in [Direction.LEFT, Direction.RIGHT]:
             self.facing_direction = self.moving_direction
-
         if self.facing_direction == Direction.LEFT:
-            self.image = pygame.transform.flip(
-                self.images[self.c_anim_state][self.anim_idx], True, False)
+            self.image = pygame.transform.flip(self.animator.get_current_image(), True, False)
 
     def move(self, move_dir: Direction) -> None:
         # Invalid movement direction

@@ -5,6 +5,7 @@ import numpy as np
 import pygame
 import tcod
 
+from rogue.components.animator import Animator
 from rogue.entity import Entity
 from rogue.enums import AIRoundState, AIState, AnimState, Direction, TileState
 
@@ -14,6 +15,7 @@ class Enemy(Entity):
         super().__init__(group=group,
                          blocks_movement=True,
                          starting_position=starting_pos)
+        self.animator = Animator(character_name="minion")
 
         self.target_position = None
 
@@ -21,17 +23,7 @@ class Enemy(Entity):
         self.player_ref = player_ref
 
         # Animation
-        self.anim_len = 4
-        self.anim_idx = 0
-        self.images = {
-            AnimState.IDLE: [pygame.image.load(
-                join("resources", "enemies", "red", "idle", f"enemy_idle{i+1}.png")).convert_alpha() for i in range(self.anim_len)],
-            AnimState.RUN: [pygame.image.load(
-                join("resources", "enemies", "red", "run", f"enemy_run{i+1}.png")).convert_alpha() for i in range(self.anim_len)]
-        }
-        self.c_anim_state = AnimState.IDLE
-        self.anim_timer = 0
-        self.image = self.images[self.c_anim_state][self.anim_idx]
+        self.image = self.animator.get_current_image()
         self.rect = pygame.rect.Rect(self.float_position, (16, 16))
 
         # AI
@@ -60,7 +52,7 @@ class Enemy(Entity):
         pathfinder = tcod.path.Pathfinder(graph)
 
         # Start position.
-        pathfinder.add_root((self.rect.x//16, self.rect.y//16))
+        pathfinder.add_root(self.tile_position)
 
         # Compute the path to the destination and remove the starting point.
         path: List[List[int]] = pathfinder.path_to((dest_x, dest_y))[1:].tolist()
@@ -70,8 +62,7 @@ class Enemy(Entity):
 
     def update_state(self):
         if self.ai_state == AIState.IDLE:
-            visible = self.map_ref.tilemap_states[self.rect.x //
-                                                  16][self.rect.y//16]
+            visible = self.map_ref.tilemap_states[self.tile_position[0]][self.tile_position[1]]
             if visible == TileState.VISIBLE:
                 self.ai_state = AIState.CHASING
             else:
@@ -81,8 +72,7 @@ class Enemy(Entity):
         # if self.round_state == AIRoundState.DONE:
         #     return
 
-        path = self.get_path_to(self.player_ref.rect.x //
-                                16, self.player_ref.rect.y // 16)
+        path = self.get_path_to(self.player_ref.tile_position[0], self.player_ref.tile_position[1])
         if path:
             dx = self.player_ref.tile_position[0] - self.tile_position[0]
             dy = self.player_ref.tile_position[1] - self.tile_position[1]
@@ -100,10 +90,11 @@ class Enemy(Entity):
 
     def update(self, dt: float, map_state: np.array):
         # TODO List
-        # If visible -> Animate
-        # If chasing -> Move
+        # Refactor this pile of garbage below (and above)
+        self.animator.update(dt)
         if self.target_position and self.target_position != (self.rect.x, self.rect.y):
             self.round_state = AIRoundState.MOVING
+            self.animator.update_state(AnimState.RUN)
             pos = pygame.Vector2(
                 self.rect.x - self.target_position[0], self.rect.y - self.target_position[1])
             pos = pos.normalize()
@@ -115,29 +106,16 @@ class Enemy(Entity):
             else:
                 self.facing_direction = Direction.RIGHT
 
-        # TODO:
-        # Moving animation
-        # Queue next animation
-        # Animation is separate class
-        # Merge with player
-
-        # AI Refactor + Cleanup -> something is strange with the pathing
-
         if self.target_position == (self.rect.x, self.rect.y):
             self.round_state = AIRoundState.DONE
+            self.animator.update_state(AnimState.IDLE)
             self.target_position = None
-        self.anim_timer += dt
-        if self.anim_timer >= 0.08:
-            self.anim_timer = 0.0
-            self.anim_idx = (self.anim_idx + 1) % self.anim_len
-        self.image = self.images[self.c_anim_state][self.anim_idx]
 
         if map_state[self.tile_position[0]][self.tile_position[1]] == TileState.VISIBLE:
+            self.image = self.animator.get_current_image()
             # Flip if moving left
             if self.facing_direction == Direction.LEFT:
-                self.image = pygame.transform.flip(self.images[self.c_anim_state][self.anim_idx], True, False)
-            else:
-                self.images[self.c_anim_state][self.anim_idx]
+                self.image = pygame.transform.flip(self.image, True, False)
         else:
             self.image = pygame.Surface((0, 0))
 

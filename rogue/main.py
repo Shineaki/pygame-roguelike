@@ -23,8 +23,7 @@ class Game:
 
         self.tilemap = TileMap(self.screen_tile_size, self.enemy_group)
 
-        self.player = Player(
-            self.player_group, self.tilemap.player_position, self.tilemap)
+        self.player = Player(self.player_group, self.tilemap.player_position, self.tilemap)
 
         self.tilemap.init_with_player(self.player)
 
@@ -74,8 +73,10 @@ class Game:
             player_movement_direction = Direction.DOWN
         if keys[pygame.K_w]:
             player_movement_direction = Direction.UP
-        player_moved = self.player.move(player_movement_direction)
 
+        return self.player.move(player_movement_direction)
+
+    def enemy_turn(self, player_moved: bool):
         if player_moved:
             # If player moved and movement finished -> Move minions
             for enemy in self.tilemap.enemies:
@@ -85,7 +86,9 @@ class Game:
         while self.running:
             self.dt = self.clock.tick(60) / 1000
 
-            self.handle_input()
+            player_moved = self.handle_input()
+
+            self.enemy_turn(player_moved)
 
             # Handle player input
             # Move creeps
