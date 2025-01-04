@@ -33,16 +33,16 @@ class Game:
     def render_screen(self):
         # fill the screen with a color to wipe away anything from last frame
         self.screen.fill("black")
+        draw_surf = pygame.Surface(self.screen_size, pygame.SRCALPHA)
         self.player_group.update(self.dt)
         self.tilemap.update_fov(self.player)
         self.tilemap.tiles_group.update(self.tilemap.tilemap_states)
-        self.tilemap.tiles_group.draw(self.screen)
-        draw_surf = pygame.Surface(self.screen_size, pygame.SRCALPHA)
+        self.tilemap.tiles_group.draw(draw_surf)
         self.enemy_group.update(self.dt, self.tilemap.tilemap_states)
-        self.enemy_group.draw(self.screen)
+        self.enemy_group.draw(draw_surf)
         # self.player_group.draw(self.screen)
-        self.screen.blit(self.player.image,
-                         self.player.rect.topleft - pygame.Vector2(0, 16))
+        draw_surf.blit(self.player.image,
+                       self.player.rect.topleft - pygame.Vector2(0, 16))
         if self.debug:
             for ent in self.tilemap.entities:
                 pygame.draw.rect(draw_surf,
@@ -78,6 +78,8 @@ class Game:
 
     def enemy_turn(self, player_moved: bool):
         if player_moved:
+            # Order enemies by distance to player
+            self.tilemap.enemies = sorted(self.tilemap.enemies, key=lambda x: x.simple_distance_to(self.player))
             # If player moved and movement finished -> Move minions
             for enemy in self.tilemap.enemies:
                 enemy.move()

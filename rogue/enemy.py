@@ -74,9 +74,7 @@ class Enemy(Entity):
 
         path = self.get_path_to(self.player_ref.tile_position[0], self.player_ref.tile_position[1])
         if path:
-            dx = self.player_ref.tile_position[0] - self.tile_position[0]
-            dy = self.player_ref.tile_position[1] - self.tile_position[1]
-            distance = abs(dx) + abs(dy)
+            distance = self.simple_distance_to(self.player_ref)
             if distance == 1:
                 print("Minion attacked you!")
             else:

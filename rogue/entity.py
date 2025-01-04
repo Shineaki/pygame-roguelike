@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Self, Tuple
 
 import pygame
 
@@ -14,3 +14,9 @@ class Entity(pygame.sprite.Sprite):
         self.tile_position = starting_position
 
         self.facing_direction = Direction.RIGHT
+
+    def simple_distance_to(self, target: Self):
+        dx = target.tile_position[0] - self.tile_position[0]
+        dy = target.tile_position[1] - self.tile_position[1]
+        distance = abs(dx) + abs(dy)
+        return distance
