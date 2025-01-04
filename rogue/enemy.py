@@ -15,7 +15,7 @@ class Enemy(Entity):
         super().__init__(group=group,
                          blocks_movement=True,
                          starting_position=starting_pos)
-        self.animator = Animator(character_name="minion")
+        self.animator = Animator(character_name="small_orc")
 
         self.target_position = None
 
