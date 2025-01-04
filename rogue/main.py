@@ -27,12 +27,12 @@ class Game:
 
         self.tilemap.init_with_player(self.player)
 
-        self.debug = True
+        self.debug = False
         self.tilemap.update_fov(self.player)
 
     def render_screen(self):
         # fill the screen with a color to wipe away anything from last frame
-        self.screen.fill("black")
+        self.screen.fill((13, 13, 13))
         draw_surf = pygame.Surface(self.screen_size, pygame.SRCALPHA)
         self.player_group.update(self.dt)
         self.tilemap.update_fov(self.player)
@@ -41,8 +41,7 @@ class Game:
         self.enemy_group.update(self.dt, self.tilemap.tilemap_states)
         self.enemy_group.draw(draw_surf)
         # self.player_group.draw(self.screen)
-        draw_surf.blit(self.player.image,
-                       self.player.rect.topleft - pygame.Vector2(0, 16))
+
         if self.debug:
             for ent in self.tilemap.entities:
                 pygame.draw.rect(draw_surf,
@@ -55,7 +54,10 @@ class Game:
                                                   (room.x2 - room.x1)*16,
                                                   (room.y2-room.y1)*16),
                                  1)
-        self.screen.blit(draw_surf, (0, 0))
+        self.screen.blit(draw_surf, (self.screen.width / 2-self.player.float_position.x, self.screen.height / 2-self.player.float_position.y))
+
+        self.screen.blit(self.player.image, (self.screen.width / 2, self.screen.height / 2 - 16))
+        # self.screen.blit(self.player.image, self.player.rect.topleft - pygame.Vector2(0, 16))
         pygame.display.flip()
 
     def handle_input(self):

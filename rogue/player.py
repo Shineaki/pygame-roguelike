@@ -37,10 +37,12 @@ class Player(Entity):
     def update(self, dt: float):
         self.animator.update(dt)
 
+        # TODO: Refactor to avoid overshoot
+
         if self.moving:
             self.animator.update_state(AnimState.RUN)
-            self.direction = self.rect.topleft - pygame.Vector2(self.target_position[0]*16, self.target_position[1]*16)
-            if self.direction.length() > 0.01:
+            self.direction = self.float_position - pygame.Vector2(self.target_position[0]*16, self.target_position[1]*16)
+            if abs(self.direction.length()) > 1:
                 self.direction = self.direction.normalize() if self.direction else self.direction
                 self.float_position -= self.direction * self.speed * dt
             else:
