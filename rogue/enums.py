@@ -25,6 +25,7 @@ class Tiles(Enum):
 
 
 class AnimState(Enum):
+    NONE = 0
     IDLE = 1
     RUN = 2
     HIT = 3

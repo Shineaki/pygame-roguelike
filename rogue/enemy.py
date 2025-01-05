@@ -1,4 +1,3 @@
-from os.path import join
 from typing import List, Tuple
 
 import numpy as np
@@ -6,23 +5,9 @@ import pygame
 import tcod
 
 from rogue.components.animator import Animator
+from rogue.components.health_bar import HealthBar
 from rogue.entity import Entity
 from rogue.enums import AIRoundState, AIState, AnimState, Direction, TileState
-
-
-class HealthBar(pygame.sprite.Sprite):
-    def __init__(self, group: pygame.sprite.Group, pos):
-        super().__init__(group)
-        self.image = pygame.surface.Surface((16, 4))
-        pygame.draw.rect(self.image, (0, 200, 0), (0, 0, 16, 4))
-        pygame.draw.rect(self.image, (0, 0, 0), (0, 0, 16, 4), 1)
-        # innerPos  = (position[0]+1, position[1]+1)
-        # innerSize = (int((size[0]-2) * progress), size[1]-2)
-        # pygame.draw.rect(surface, color_health, (*innerPos, *innerSize))
-        self.rect = (pos[0], pos[1]-2)
-
-    def update_based_on_parent_pos(self, pos):
-        self.rect = (pos[0], pos[1]-2)
 
 
 class Enemy(Entity):
@@ -30,8 +15,8 @@ class Enemy(Entity):
         super().__init__(group=group,
                          blocks_movement=True,
                          starting_position=starting_pos)
-        self.health_bar = HealthBar(group, pygame.rect.Rect(self.float_position, (16, 4)))
-        self.animator = Animator(character_name="small_orc")
+        self.health_bar = HealthBar(group, pygame.rect.Rect(self.float_position, (12, 4)), pygame.Vector2(2, -3))
+        self.animator = Animator(character_name="minion", anim_frame_length=0.1)
 
         self.target_position = None
 
@@ -85,6 +70,8 @@ class Enemy(Entity):
                 return
         if self.round_state == AIRoundState.MOVING:
             return
+        if not self.target_position == None:
+            return
         # if self.round_state == AIRoundState.DONE:
         #     return
 
@@ -109,10 +96,10 @@ class Enemy(Entity):
         self.animator.update(dt)
         if self.target_position:
             direction = self.float_position - pygame.Vector2(self.target_position[0], self.target_position[1])
-            if abs(direction.length()) > 1:
+            if abs(direction.length()) > 0.5:
                 self.round_state = AIRoundState.MOVING
                 self.animator.update_state(AnimState.RUN)
-                pos = pygame.Vector2(self.rect.x - self.target_position[0], self.rect.y - self.target_position[1])
+                pos = pygame.Vector2(self.float_position.x - self.target_position[0], self.float_position.y - self.target_position[1])
                 pos = pos.normalize()
                 self.float_position -= pos * 40 * dt
                 if pos.x > 0:  # Facing left
@@ -122,7 +109,7 @@ class Enemy(Entity):
             else:
                 self.float_position = pygame.Vector2(self.target_position[0], self.target_position[1])
                 self.round_state = AIRoundState.DONE
-                self.animator.update_state(AnimState.IDLE)
+                self.animator.queue_next_animation(AnimState.IDLE)
                 self.target_position = None
             self.rect.x = self.float_position.x
             self.rect.y = self.float_position.y

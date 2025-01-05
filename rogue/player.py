@@ -38,6 +38,7 @@ class Player(Entity):
         self.animator.update(dt)
 
         # TODO: Refactor to avoid overshoot
+        # TODO: Refactor target_position to be the same as in the Enemy
 
         if self.moving:
             self.animator.update_state(AnimState.RUN)
@@ -62,7 +63,7 @@ class Player(Entity):
         if self.facing_direction == Direction.LEFT:
             self.image = pygame.transform.flip(self.animator.get_current_image(), True, False)
 
-    def move(self, move_dir: Direction) -> None:
+    def move(self, move_dir: Direction) -> bool:
         # Invalid movement direction
         if move_dir == Direction.NULL:
             return False

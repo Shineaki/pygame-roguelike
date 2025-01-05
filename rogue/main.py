@@ -1,6 +1,6 @@
 import pygame
 
-from rogue.enums import Direction
+from rogue.enums import AIRoundState, Direction
 from rogue.map import TileMap
 from rogue.player import Player
 
@@ -13,10 +13,12 @@ class Game:
         self.screen_tile_size = (40, 20)
 
         self.screen = pygame.display.set_mode(
-            self.screen_size, flags=pygame.SCALED, vsync=0)
+            self.screen_size, flags=pygame.SCALED, vsync=1)
         self.clock = pygame.time.Clock()
         self.running = True
         self.dt = 0
+
+        self.waiting_to_finish_movement = False
 
         self.player_group = pygame.sprite.Group()
         self.enemy_group = pygame.sprite.Group()
@@ -26,6 +28,9 @@ class Game:
         self.player = Player(self.player_group, self.tilemap.player_position, self.tilemap)
 
         self.tilemap.init_with_player(self.player)
+
+        self.camera_position = pygame.Vector2(self.screen.width / 2 - self.player.float_position.x,
+                                              self.screen.height / 2 - self.player.float_position.y)
 
         self.debug = False
         self.tilemap.update_fov(self.player)
@@ -54,9 +59,11 @@ class Game:
                                                   (room.x2 - room.x1)*16,
                                                   (room.y2-room.y1)*16),
                                  1)
-        self.screen.blit(draw_surf, (self.screen.width / 2-self.player.float_position.x, self.screen.height / 2-self.player.float_position.y))
-
+        self.camera_position = pygame.Vector2(self.screen.width / 2 - self.player.rect.x,
+                                              self.screen.height / 2 - self.player.rect.y)
+        self.screen.blit(draw_surf, self.camera_position)
         self.screen.blit(self.player.image, (self.screen.width / 2, self.screen.height / 2 - 16))
+
         # self.screen.blit(self.player.image, self.player.rect.topleft - pygame.Vector2(0, 16))
         pygame.display.flip()
 
@@ -85,14 +92,23 @@ class Game:
             # If player moved and movement finished -> Move minions
             for enemy in self.tilemap.enemies:
                 enemy.move()
+            return True
+        return False
 
     def run(self):
         while self.running:
             self.dt = self.clock.tick(60) / 1000
 
-            player_moved = self.handle_input()
+            if self.waiting_to_finish_movement:
+                finished = all([en.round_state == AIRoundState.DONE for en in self.tilemap.enemies])
+                if finished:
+                    self.waiting_to_finish_movement = False
+            else:
+                player_moved = self.handle_input()
+                enemies_moved = self.enemy_turn(player_moved)
 
-            self.enemy_turn(player_moved)
+                if player_moved and enemies_moved:
+                    self.waiting_to_finish_movement = True
 
             # Handle player input
             # Move creeps
