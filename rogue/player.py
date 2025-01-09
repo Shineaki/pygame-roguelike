@@ -45,17 +45,18 @@ class Player(Entity):
             self.direction = self.float_position - pygame.Vector2(self.target_position[0]*16, self.target_position[1]*16)
             if abs(self.direction.length()) > 1:
                 self.direction = self.direction.normalize() if self.direction else self.direction
-                self.float_position -= self.direction * self.speed * dt
+                self.float_position -= self.direction
             else:
                 self.float_position = pygame.Vector2(self.target_position[0]*16, self.target_position[1]*16)
                 self.moving = False
                 self.target_position = None
                 self.moving_direction = Direction.NULL
+                # self.animator.update_state(AnimState.IDLE)
 
             self.rect.x = self.float_position.x
             self.rect.y = self.float_position.y
         elif not self.moving and self.moving_direction == Direction.NULL:
-            self.animator.update_state(AnimState.IDLE)
+            self.animator.queue_next_animation(AnimState.IDLE)
 
         self.image = self.animator.get_current_image()
         if self.moving_direction in [Direction.LEFT, Direction.RIGHT]:

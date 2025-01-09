@@ -96,12 +96,11 @@ class Enemy(Entity):
         self.animator.update(dt)
         if self.target_position:
             direction = self.float_position - pygame.Vector2(self.target_position[0], self.target_position[1])
-            if abs(direction.length()) > 0.5:
+            if abs(direction.length()) > 1:
                 self.round_state = AIRoundState.MOVING
                 self.animator.update_state(AnimState.RUN)
-                pos = pygame.Vector2(self.float_position.x - self.target_position[0], self.float_position.y - self.target_position[1])
-                pos = pos.normalize()
-                self.float_position -= pos * 40 * dt
+                pos = direction.normalize()
+                self.float_position -= pos
                 if pos.x > 0:  # Facing left
                     self.facing_direction = Direction.LEFT
                 else:
