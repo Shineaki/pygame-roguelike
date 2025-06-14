@@ -13,7 +13,8 @@ class Game:
         self.screen_tile_size = (40, 20)
 
         self.screen = pygame.display.set_mode(
-            self.screen_size, flags=pygame.SCALED, vsync=1)
+            self.screen_size, flags=(pygame.SCALED | pygame.FULLSCREEN), vsync=1
+        )
         self.clock = pygame.time.Clock()
         self.running = True
         self.dt = 0
@@ -25,12 +26,16 @@ class Game:
 
         self.tilemap = TileMap(self.screen_tile_size, self.enemy_group)
 
-        self.player = Player(self.player_group, self.tilemap.player_position, self.tilemap)
+        self.player = Player(
+            self.player_group, self.tilemap.player_position, self.tilemap
+        )
 
         self.tilemap.init_with_player(self.player)
 
-        self.camera_position = pygame.Vector2(self.screen.width / 2 - self.player.float_position.x,
-                                              self.screen.height / 2 - self.player.float_position.y)
+        self.camera_position = pygame.Vector2(
+            self.screen.width / 2 - self.player.float_position.x,
+            self.screen.height / 2 - self.player.float_position.y,
+        )
 
         self.debug = False
         self.tilemap.update_fov(self.player)
@@ -49,20 +54,29 @@ class Game:
 
         if self.debug:
             for ent in self.tilemap.entities:
-                pygame.draw.rect(draw_surf,
-                                 pygame.color.Color(0, 255, 0, 50),
-                                 ent.rect, 1)
+                pygame.draw.rect(
+                    draw_surf, pygame.color.Color(0, 255, 0, 50), ent.rect, 1
+                )
             for room in self.tilemap.rooms:
-                pygame.draw.rect(draw_surf,
-                                 (255, 0, 0, 50),
-                                 pygame.rect.Rect(room.x1 * 16, room.y1 * 16,
-                                                  (room.x2 - room.x1)*16,
-                                                  (room.y2-room.y1)*16),
-                                 1)
-        self.camera_position = pygame.Vector2(self.screen.width / 2 - self.player.rect.x,
-                                              self.screen.height / 2 - self.player.rect.y)
+                pygame.draw.rect(
+                    draw_surf,
+                    (255, 0, 0, 50),
+                    pygame.rect.Rect(
+                        room.x1 * 16,
+                        room.y1 * 16,
+                        (room.x2 - room.x1) * 16,
+                        (room.y2 - room.y1) * 16,
+                    ),
+                    1,
+                )
+        self.camera_position = pygame.Vector2(
+            self.screen.width / 2 - self.player.rect.x,
+            self.screen.height / 2 - self.player.rect.y,
+        )
         self.screen.blit(draw_surf, self.camera_position)
-        self.screen.blit(self.player.image, (self.screen.width / 2, self.screen.height / 2 - 16))
+        self.screen.blit(
+            self.player.image, (self.screen.width / 2, self.screen.height / 2 - 16)
+        )
 
         # self.screen.blit(self.player.image, self.player.rect.topleft - pygame.Vector2(0, 16))
         pygame.display.flip()
@@ -88,7 +102,9 @@ class Game:
     def enemy_turn(self, player_moved: bool):
         if player_moved:
             # Order enemies by distance to player
-            self.tilemap.enemies = sorted(self.tilemap.enemies, key=lambda x: x.simple_distance_to(self.player))
+            self.tilemap.enemies = sorted(
+                self.tilemap.enemies, key=lambda x: x.simple_distance_to(self.player)
+            )
             # If player moved and movement finished -> Move minions
             for enemy in self.tilemap.enemies:
                 enemy.move()
@@ -100,7 +116,9 @@ class Game:
             self.dt = self.clock.tick(60) / 1000
 
             if self.waiting_to_finish_movement:
-                finished = all([en.round_state == AIRoundState.DONE for en in self.tilemap.enemies])
+                finished = all(
+                    [en.round_state == AIRoundState.DONE for en in self.tilemap.enemies]
+                )
                 if finished:
                     self.waiting_to_finish_movement = False
             else:
